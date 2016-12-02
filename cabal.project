@@ -1,0 +1,7 @@
+packages:
+  ../bookkeeper/bookkeeper/bookkeeper.cabal
+  ../hssqlppp/hssqlppp/hssqlppp.cabal
+  forum.cabal
+with-compiler: /opt/ghc/8.0.1/bin/ghc
+benchmarks: False
+allow-newer: hackage-security:Cabal
