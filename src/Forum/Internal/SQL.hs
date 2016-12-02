@@ -17,11 +17,13 @@ import qualified Database.HsSqlPpp.Annotation as Sql
 import qualified Database.HsSqlPpp.Catalog    as Sql
 import qualified Database.HsSqlPpp.Parse      as Sql
 import qualified Database.HsSqlPpp.Syntax     as Sql
+import qualified Database.HsSqlPpp.Dialect as Sql (postgresCatalog)
 import qualified Database.HsSqlPpp.TypeCheck  as Sql
 import qualified Database.HsSqlPpp.Types      as Sql
 import qualified Hasql.Class                  as Hasql
 import qualified Hasql.Connection             as Hasql
-import           Hasql.Pool                   (acquire)
+import qualified Hasql.Session                as Hasql
+import           Hasql.Pool                   (acquire, use, UsageError)
 import qualified Language.Haskell.TH          as TH
 import qualified Language.Haskell.TH.Quote    as TH
 import qualified Language.Haskell.TH.Syntax   as TH
@@ -101,51 +103,40 @@ sqlQQForSchema catalog = TH.QuasiQuoter
 
 -- * Creating and deleting DBs
 
-makeTable :: String -> [(T.Text, Sql.Type)] -> BS.ByteString
-makeTable tblName columns =
-  "CREATE TABLE IF NOT EXISTS " <> BS.pack tblName <> " ( " <> cols <> " ) "
+
+catalogUpdateToSql :: Sql.CatalogUpdate -> BS.ByteString
+catalogUpdateToSql (Sql.CatCreateTable (schema, tblName) columns) =
+  "CREATE TABLE IF NOT EXISTS " <> T.encodeUtf8 tblName <> " ( " <> cols <> " ) "
   where
     cols = BS.intercalate ", " (go <$> columns)
-    go (colName, Sql.ScalarType colType)
-      = T.encodeUtf8 colName <> " " <> T.encodeUtf8 colType
-
+    go (colName, colType)
+      = T.encodeUtf8 colName <> " " <> T.encodeUtf8 (Sql.catName colType)
 
 getOrCreateDB
-  :: forall (schema :: [*]) f e.
-    (BKeys schema, All2 ToTable schema, All (IsEqTo (Book' f e)) schema,  ToCatalogUpdate schema)
-  => DBSettings -> Proxy schema -> IO (Either [Sql.TypeError] DB)
+  :: forall f schema . (ToCatalogUpdate schema)
+  => DBSettings -> Proxy (Book' f schema) -> IO (Either String DB)
 getOrCreateDB settings schema = do
-  print createTables
   let s = Hasql.settings (dbHost settings)
                          (dbPort settings)
                          (dbUser settings)
                          (dbPassword settings)
                          (dbName settings)
   pool <- acquire (20, 1, s)
-  case toCatalog (Proxy :: Proxy (Book' Identity schema)) of
-    Left e -> return (Left e)
-    Right catalog -> return . Right $ DB
-      { dbCatalog        = catalog
-      , dbSettings       = settings
-      , dbConnectionPool = pool
-      }
-  where
-    schemaProxies :: Book' Proxy schema
-    schemaProxies = bproxies
-
-    toFieldProxy :: Proxy (Book' f schema) -> Proxy schema
-    toFieldProxy _ = Proxy
-
-    tables' :: Book' (Const [(T.Text, Sql.Type)]) schema
-    tables' = bmapConstraint Proxy
-                             (Const . toTable . toFieldProxy)
-                             schemaProxies
-
-    tables :: [(String, [(T.Text, Sql.Type)])]
-    tables  = bcollapseWithKeys tables'
-
-    createTables = uncurry makeTable <$> tables
-
+  let catalog = toCatalogUpdate (Proxy :: Proxy schema)
+  let setup = BS.intercalate "\n" $ catalogUpdateToSql <$> catalog
+  let mentireCatalog = Sql.updateCatalog catalog Sql.postgresCatalog
+  case mentireCatalog of
+    Left e -> return $ Left (show e)
+    Right entireCatalog -> do
+      setupResult <- use pool (Hasql.sql setup)
+      print setupResult
+      case setupResult of
+        Left e -> return $ Left (show e)
+        Right () -> return . Right $ DB
+          { dbCatalog        = entireCatalog
+          , dbSettings       = settings
+          , dbConnectionPool = pool
+          }
 
 deleteDB :: DB -> IO ()
 deleteDB = undefined

@@ -51,6 +51,14 @@ defaultDBSettings = DBSettings
   , dbPassword = "postgres"
   }
 
+defaultTestDBSettings :: DBSettings
+defaultTestDBSettings = DBSettings
+  { dbName     = "test"
+  , dbHost     = "localhost"
+  , dbPort     = 5432
+  , dbUser     = "test"
+  , dbPassword = "test"
+  }
 
 -- * SQL types represented as Haskell types
 

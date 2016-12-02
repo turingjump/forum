@@ -45,15 +45,10 @@ toSqlType _ = reflect (Proxy :: Proxy (SqlType a))
 
 -- * ToTable
 
-toTable' :: forall entries f. (BKeys entries, All HasSqlValue entries) =>
-  Proxy (Book' f entries) -> [(String, Sql.Type)]
-toTable' _ = bcollapseWithKeys $ bmapConstraint (Proxy :: Proxy HasSqlValue) go b
-  where
-    go :: forall a. HasSqlValue a => f a -> Const Sql.Type a
-    go _ = Const $ toSqlType (Proxy :: Proxy a)
-
-    b :: Book' f entries
-    b = undefined
+-- Is it a bad sign that I prefer declaring new, single-purpose classes than
+-- using the Bookkeeper combinators?
+-- "If I flinch from the pain of the burning, believe not the doctrine that I
+-- have preached"
 
 class ToTable (a :: [*]) where
   toTable :: Proxy a -> [(T.Text, Sql.Type)]

@@ -9,7 +9,7 @@ import Data.Int
 
 withEmptyDb :: (DB -> IO a) -> IO a
 withEmptyDb action = do
-  db <- getOrCreateDB "forum-test" (Proxy :: Proxy Schema)
+  Right db <- getOrCreateDB defaultTestDBSettings (Proxy :: Proxy Schema)
   result <- action db
   deleteDB db
   return result
