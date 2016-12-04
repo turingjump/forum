@@ -1,11 +1,13 @@
 module Forum
   ( module X
   , sqlQQFor
+  , runSQL
   , getOrCreateDB
   , deleteDB
   , PrimaryKey(..)
   , ForeignKey(..)
   , DB
+  , SQL
   , dbName
   , dbConnectionPool
   , dbCatalog
@@ -20,5 +22,5 @@ import Data.Proxy                (Proxy (Proxy))
 import Forum.Internal            (DB (..), DBSettings (..), ForeignKey (..),
                                   PrimaryKey (..), defaultDBSettings,
                                   defaultTestDBSettings, deleteDB,
-                                  getOrCreateDB, sqlQQFor)
+                                  getOrCreateDB, runSQL, sqlQQFor, SQL)
 import Language.Haskell.TH.Quote (QuasiQuoter)

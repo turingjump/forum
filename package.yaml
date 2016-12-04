@@ -25,6 +25,7 @@ dependencies:
   - bytestring >= 0.10 && < 0.11
   - reflection >= 2 && < 3
   - mtl >= 2.2 && < 2.3
+  - process >= 1.4 && < 1.5
 
 default-extensions:
   - AutoDeriveTypeable

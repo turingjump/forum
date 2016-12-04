@@ -2,12 +2,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Forum.Internal.SQLSpec (spec) where
 
-import           Database.HsSqlPpp.Dialect (postgresCatalog)
 import           Forum
 import           Forum.Internal
 import           Language.Haskell.TH       (runQ)
 import qualified Language.Haskell.TH       as TH
-import qualified Language.Haskell.TH.Ppr   as TH
 import           Language.Haskell.TH.Alpha (areExpAEq)
 import           Test.Hspec
 
@@ -48,4 +46,5 @@ typeCheckSQLSpec = describe "typeCheckSQL" $ do
         print expected
         result <- (asExp <$> typeCheckSQL v catalog) `areExpAEq` (return $ asExp expected)
         result `shouldBe` True
+      Right _ -> error "expecting one statement"
       Left e -> error $ show e

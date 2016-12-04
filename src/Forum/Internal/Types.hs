@@ -1,8 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Forum.Internal.Types where
 
-import           Control.Monad.Except      (MonadError)
-import           Control.Monad.IO.Class    (MonadIO)
+import           Bookkeeper                (Book)
 import qualified Data.ByteString           as BS
 import           Data.Proxy                (Proxy (..))
 import           Data.Reflection           (Reifies (..))
@@ -12,9 +11,10 @@ import qualified Database.HsSqlPpp.Types   as Sql
 import           GHC.Generics              (Generic)
 import           GHC.TypeLits
 import           GHC.Word                  (Word16)
+import           Hasql.Query               (Query)
 import           Hasql.Class               (Decodable, Encodable)
 import           Hasql.Pool                (Pool)
-import           Hasql.Session             (Error, Session)
+{-import           Hasql.Session             (Session)-}
 
 newtype PrimaryKey (tbl :: Symbol) val = PrimaryKey val
   deriving (Eq, Show, Read, Generic, Ord)
@@ -69,8 +69,4 @@ instance KnownSymbol s => Reifies (Scalar s) Sql.Type where
 
 -- * SQL
 
-newtype SQL a = SQL { runSQL' :: Session a }
-  -- This isn't quite right. The composition implied by the classes is a little
-  -- misleading, since they involve a round-trip through the application, and
-  -- encoding and decoding.
-  deriving (Functor, Applicative, Monad, MonadError Error, MonadIO)
+newtype SQL a = SQL { runSQL' :: Query () (Book a) }
