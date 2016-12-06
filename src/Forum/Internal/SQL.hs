@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Forum.Internal.SQL where
 
-import           Bookkeeper                   ((:=>), Book', Identity, Book)
+import           Bookkeeper                   ((:=>), Book', Identity, Book, sorted)
 import           Control.Monad                (foldM)
 import qualified Data.ByteString.Char8        as BS
 import           Data.Char                    (isAlphaNum)
@@ -29,7 +29,7 @@ import qualified Language.Haskell.TH.Syntax   as TH
 import Forum.Internal.Class
 import Forum.Internal.Types
 
-runSQL :: Hasql.Decodable (Book b) => DB -> SQL b -> IO (Either UsageError (Book b))
+runSQL :: Hasql.Decodable (Book b) => DB -> SQL b -> IO (Either UsageError [Book b])
 runSQL db (SQL query) = use (dbConnectionPool db) (Hasql.query () query)
 
 parseSQL :: String -> Either Sql.ParseErrorExtra ([Sql.Statement], [String])
@@ -67,7 +67,7 @@ toBookType (Sql.CompositeType ts) = finish =<< foldM go original ts
 
     finish :: (TH.Type, [TH.TyVarBndr], TH.Cxt) -> TH.Q TH.Type
     finish (accType, accBindings, accCtx) = do
-      typ <- [t| Hasql.Query () (Book' Identity $(return accType)) |]
+      typ <- [t| Hasql.Query () [Book' Identity $(return accType)] |]
       return $ TH.ForallT accBindings accCtx typ
 
     toHsSqlType :: Sql.Type -> TH.Q TH.Type
@@ -87,7 +87,7 @@ makeStatement :: TH.Q TH.Type -> String -> [String] -> TH.Q TH.Exp
 makeStatement returnType stmt' params =
   [e| let e :: $(returnType)
           e = Hasql.stmtList (BS.pack $stmt) True
-      in  e
+      in  (SQL $ fmap sorted <$> e)
   |]
   where
     stmt = TH.liftString stmt'

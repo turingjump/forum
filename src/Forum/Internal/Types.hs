@@ -69,4 +69,4 @@ instance KnownSymbol s => Reifies (Scalar s) Sql.Type where
 
 -- * SQL
 
-newtype SQL a = SQL { runSQL' :: Query () (Book a) }
+newtype SQL a = SQL { runSQL' :: Query () [Book a] }

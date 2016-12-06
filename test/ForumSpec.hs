@@ -4,6 +4,7 @@ module ForumSpec (spec) where
 import Forum
 import Schema
 import Test.Hspec
+import qualified Data.Text as T
 
 spec :: Spec
 spec = describe "forum" $ around withEmptyDb $ do
@@ -14,7 +15,7 @@ spec = describe "forum" $ around withEmptyDb $ do
 
   it "allows querying" $ \db -> do
     Right result <- runSQL db [sql| SELECT firstname FROM discoverer; |]
-    result `shouldBe` ([] :: [Discoverer])
+    result `shouldBe` ([] :: [Book '["firstName" :=> T.Text]])
 
   {-it "allows inserting" $ \db -> do-}
     {-runSql [sql| INSERT INTO discoverer VALUES $discoverer; |]-}
