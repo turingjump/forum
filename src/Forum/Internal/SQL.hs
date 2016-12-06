@@ -19,12 +19,13 @@ import qualified Database.HsSqlPpp.TypeCheck  as Sql
 import qualified Database.HsSqlPpp.Types      as Sql
 import qualified Hasql.Class                  as Hasql
 import qualified Hasql.Connection             as Hasql
-import           Hasql.Pool                   (UsageError, acquire, use)
+import           Hasql.Pool                   (UsageError, acquire, use, release)
 import qualified Hasql.Query                  as Hasql
 import qualified Hasql.Session                as Hasql
 import qualified Language.Haskell.TH          as TH
 import qualified Language.Haskell.TH.Quote    as TH
 import qualified Language.Haskell.TH.Syntax   as TH
+import System.Process
 
 import Forum.Internal.Class
 import Forum.Internal.Types
@@ -63,7 +64,10 @@ toBookType (Sql.CompositeType ts) = finish =<< foldM go original ts
       let colSymbol = TH.LitT . TH.StrTyLit $ T.unpack col
       newType <- [t| $(return colSymbol) :=> $(return $ TH.VarT newBinding) ': $(return accType) |]
       newCtx  <- [t| SqlType $(return $ TH.VarT newBinding) ~ $(toHsSqlType $ Sql.teType typ) |]
-      return $ (newType, TH.PlainTV newBinding : accBindings, newCtx : accCtx)
+      decodableCtx <- [t| Hasql.Decodable $(return $ TH.VarT newBinding) |]
+      return $ ( newType
+               , TH.PlainTV newBinding : accBindings
+               , decodableCtx : newCtx : accCtx)
 
     finish :: (TH.Type, [TH.TyVarBndr], TH.Cxt) -> TH.Q TH.Type
     finish (accType, accBindings, accCtx) = do
@@ -87,7 +91,7 @@ makeStatement :: TH.Q TH.Type -> String -> [String] -> TH.Q TH.Exp
 makeStatement returnType stmt' params =
   [e| let e :: $(returnType)
           e = Hasql.stmtList (BS.pack $stmt) True
-      in  (SQL $ fmap sorted <$> e)
+      in  (makeSQL e)
   |]
   where
     stmt = TH.liftString stmt'
@@ -131,13 +135,13 @@ getOrCreateDB settings schema = do
                          (dbPassword settings)
                          (dbName settings)
   print s
-  {-callProcess "createdb" [ "-p", show (dbPort settings)-}
-                         {--- TODO: host (somehow 'localhost'/127.0.0.1 isn't working)-}
-                         {-[>, "-h", BS.unpack (dbHost settings)<]-}
-                         {-[>, "--no-password"<]-}
-                         {-[>, "-U", BS.unpack (dbUser settings)<]-}
-                         {-, BS.unpack (dbName settings)-}
-                         {-]-}
+  callProcess "createdb" [ "-p", show (dbPort settings)
+                         -- TODO: host (somehow 'localhost'/127.0.0.1 isn't working)
+                         {-, "-h", BS.unpack (dbHost settings)-}
+                         {-, "--no-password"-}
+                         {-, "-U", BS.unpack (dbUser settings)-}
+                         , BS.unpack (dbName settings)
+                         ]
   pool <- acquire (20, 1, s)
   let catalog = toCatalogUpdate (Proxy :: Proxy schema)
   let setup = BS.intercalate ";\n" $ catalogUpdateToSql <$> catalog
@@ -157,4 +161,12 @@ getOrCreateDB settings schema = do
           }
 
 deleteDB :: DB -> IO ()
-deleteDB = undefined
+deleteDB db = do
+  release (dbConnectionPool db)
+  callProcess "dropdb" [ "-p", show (dbPort $ dbSettings db)
+                         -- TODO: host (somehow 'localhost'/127.0.0.1 isn't working)
+                         {-, "-h", BS.unpack (dbHost settings)-}
+                         {-, "--no-password"-}
+                         {-, "-U", BS.unpack (dbUser settings)-}
+                         , BS.unpack (dbName $ dbSettings db)
+                         ]

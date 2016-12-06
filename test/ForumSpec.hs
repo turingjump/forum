@@ -15,7 +15,7 @@ spec = describe "forum" $ around withEmptyDb $ do
 
   it "allows querying" $ \db -> do
     Right result <- runSQL db [sql| SELECT firstname FROM discoverer; |]
-    result `shouldBe` ([] :: [Book '["firstName" :=> T.Text]])
+    result `shouldBe` ([] :: [Book '["firstname" :=> T.Text]])
 
   {-it "allows inserting" $ \db -> do-}
     {-runSql [sql| INSERT INTO discoverer VALUES $discoverer; |]-}

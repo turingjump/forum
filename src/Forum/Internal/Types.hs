@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Forum.Internal.Types where
 
-import           Bookkeeper                (Book)
+import           Bookkeeper                (Book, Book', Identity, Sorted, sorted)
 import qualified Data.ByteString           as BS
 import           Data.Proxy                (Proxy (..))
 import           Data.Reflection           (Reifies (..))
@@ -70,3 +70,6 @@ instance KnownSymbol s => Reifies (Scalar s) Sql.Type where
 -- * SQL
 
 newtype SQL a = SQL { runSQL' :: Query () [Book a] }
+
+makeSQL :: Sorted as => Query () [Book' Identity as] -> SQL as
+makeSQL q = SQL (fmap sorted <$> q)
